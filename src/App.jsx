@@ -8,7 +8,10 @@ import PublicRoute from "./components/PublicRoute";
 import AuthInitializer from "./components/AuthInitializer";
 import AdminLayout from "./pages/DashboardAdmin/layouts/AdminLayout";
 import AdminDashboard from "./pages/DashboardAdmin/AdminDashboard/AdminDashboard";
+import AdminEnseignant from "./pages/DashboardAdmin/AdminEnseignant/AdminEnseignant";
+
 import EnseignantDashboard from "./pages/DashboardEnseignant/EnseignantDashboard";
+
 import EtudiantDashboard from "./pages/DashboardEtudiant/EtudiantDashboard";
 
 // Configuration AOS
@@ -71,7 +74,7 @@ function App() {
                                 
                                 {/* Routes admin - CHANGER ICI */}
                                 <Route 
-                                    path="/admin" 
+                                    path="/admin/dashboard" 
                                     element={
                                         <PrivateRoute requiredRole="admin">
                                             <AdminLayout>
@@ -80,13 +83,13 @@ function App() {
                                         </PrivateRoute>
                                     } 
                                 />
-                                
+
                                 <Route 
-                                    path="/admin/dashboard" 
+                                    path="/admin/enseignant" 
                                     element={
                                         <PrivateRoute requiredRole="admin">
                                             <AdminLayout>
-                                                <AdminDashboard />
+                                                <AdminEnseignant />
                                             </AdminLayout>
                                         </PrivateRoute>
                                     } 
