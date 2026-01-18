@@ -9,7 +9,7 @@ import PrivateRoute from "./components/PrivateRoute";
 // Dashboards
 import AdminDashboard from "./pages/DashboardAdmin/AdminDashboard";
 import EnseignantDashboard from "./pages/DashboardEnseignant/EnseignantDashboard";
-import EtudiantDashboard from "./pages/DashboardEtudiant/etudiantDashboard";
+import EtudiantDashboard from "./pages/DashboardEtudiant/EtudiantDashboard"
 
 // Configuration AOS
 import AOS from 'aos';

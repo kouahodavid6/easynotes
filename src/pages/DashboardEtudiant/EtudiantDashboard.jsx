@@ -1,9 +1,9 @@
 const EtudiantDashboard = () => {
-    return(
+    return (
         <>
 
         </>
     );
 }
 
-export default EtudiantDashboard;
+export default EtudiantDashboard
