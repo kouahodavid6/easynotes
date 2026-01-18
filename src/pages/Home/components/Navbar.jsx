@@ -1,6 +1,6 @@
 import { navItems } from '../../../data/data';
 import { useState, useEffect, useRef } from 'react';
-import { Menu, X, LogIn } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 const Navbar = () => {
