@@ -1,4 +1,3 @@
-// /components/PrivateRoute.jsx
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
@@ -7,8 +6,11 @@ const PrivateRoute = ({ children, requiredRole }) => {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500"></div>
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-white">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500"></div>
+                    <p className="text-gray-600">Vérification des droits d'accès...</p>
+                </div>
             </div>
         );
     }

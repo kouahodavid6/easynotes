@@ -1,3 +1,4 @@
+// Pour la navbar principale
 export const navItems = [
     { id: 'accueil', label: 'Accueil' },
     { id: 'about', label: 'À propos' },

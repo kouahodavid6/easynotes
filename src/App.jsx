@@ -1,15 +1,15 @@
-// App.jsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Home from "./pages/Home/Home";
 import Login from "./pages/Auth/Login";
 import NotFound from "./components/NotFound";
 import PrivateRoute from "./components/PrivateRoute";
-
-// Dashboards
-import AdminDashboard from "./pages/DashboardAdmin/AdminDashboard";
+import PublicRoute from "./components/PublicRoute";
+import AuthInitializer from "./components/AuthInitializer";
+import AdminLayout from "./pages/DashboardAdmin/layouts/AdminLayout";
+import AdminDashboard from "./pages/DashboardAdmin/AdminDashboard/AdminDashboard";
 import EnseignantDashboard from "./pages/DashboardEnseignant/EnseignantDashboard";
-import EtudiantDashboard from "./pages/DashboardEtudiant/EtudiantDashboard"
+import EtudiantDashboard from "./pages/DashboardEtudiant/EtudiantDashboard";
 
 // Configuration AOS
 import AOS from 'aos';
@@ -44,46 +44,82 @@ function App() {
         <QueryClientProvider client={queryClient}>
             <Router>
                 <div className="min-h-screen bg-gray-50">
-                  <AppToaster />
-                  <main>
-                      <Routes>
-                          {/* Routes publiques */}
-                          <Route path="/" element={<Home />} />
-                          <Route path="/login" element={<Login />} />
-                          
-                          {/* Routes protégées par rôle */}
-                          <Route 
-                              path="/admin/dashboard" 
-                              element={
-                                  <PrivateRoute requiredRole="admin">
-                                      <AdminDashboard />
-                                  </PrivateRoute>
-                              } 
-                          />
-                          
-                          <Route 
-                              path="/enseignant/dashboard" 
-                              element={
-                                  <PrivateRoute requiredRole="enseignant">
-                                      <EnseignantDashboard />
-                                  </PrivateRoute>
-                              } 
-                          />
-                          
-                          <Route 
-                              path="/etudiant/dashboard" 
-                              element={
-                                  <PrivateRoute requiredRole="etudiant">
-                                      <EtudiantDashboard />
-                                  </PrivateRoute>
-                              } 
-                          />
-                          
-                          {/* Routes de secours */}
-                          <Route path="/not-found" element={<NotFound />} />
-                          <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </main>
+                    <AppToaster />
+                    
+                    {/* Initialiseur d'authentification pour la sécurité globale */}
+                    <AuthInitializer>
+                        <main>
+                            <Routes>
+                                {/* Routes publiques - Protégées avec PublicRoute */}
+                                <Route 
+                                    path="/" 
+                                    element={
+                                        <PublicRoute>
+                                            <Home />
+                                        </PublicRoute>
+                                    } 
+                                />
+                                
+                                <Route 
+                                    path="/login" 
+                                    element={
+                                        <PublicRoute>
+                                            <Login />
+                                        </PublicRoute>
+                                    } 
+                                />
+                                
+                                {/* Routes admin - CHANGER ICI */}
+                                <Route 
+                                    path="/admin" 
+                                    element={
+                                        <PrivateRoute requiredRole="admin">
+                                            <AdminLayout>
+                                                <AdminDashboard />
+                                            </AdminLayout>
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                
+                                <Route 
+                                    path="/admin/dashboard" 
+                                    element={
+                                        <PrivateRoute requiredRole="admin">
+                                            <AdminLayout>
+                                                <AdminDashboard />
+                                            </AdminLayout>
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                
+                                {/* Routes enseignant */}
+                                <Route 
+                                    path="/enseignant/dashboard" 
+                                    element={
+                                        <PrivateRoute requiredRole="enseignant">
+                                            <EnseignantDashboard />
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                
+                                {/* Routes étudiant */}
+                                <Route 
+                                    path="/etudiant/dashboard" 
+                                    element={
+                                        <PrivateRoute requiredRole="etudiant">
+                                            <EtudiantDashboard />
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                
+                                {/* Route 404 personnalisée */}
+                                <Route path="/not-found" element={<NotFound />} />
+                                
+                                {/* Catch-all route - redirige vers 404 */}
+                                <Route path="*" element={<NotFound />} />
+                            </Routes>
+                        </main>
+                    </AuthInitializer>
                 </div>
             </Router>
         </QueryClientProvider>
