@@ -1,5 +1,5 @@
 import { navItems } from '../../../data/data';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Menu, X, LogIn } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
@@ -9,9 +9,42 @@ const Navbar = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
+    
+    // Référence pour détecter les clics en dehors
+    const mobileMenuRef = useRef(null);
+    const menuButtonRef = useRef(null);
 
     // Vérifier si on est sur la page d'accueil
     const isHomePage = location.pathname === '/';
+
+    // Gérer les clics en dehors du menu mobile
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            // Si le menu mobile est ouvert ET que le clic est en dehors du menu ET en dehors du bouton menu
+            if (isMobileMenuOpen && 
+                mobileMenuRef.current && 
+                !mobileMenuRef.current.contains(event.target) &&
+                menuButtonRef.current && 
+                !menuButtonRef.current.contains(event.target)) {
+                setIsMobileMenuOpen(false);
+            }
+        };
+
+        // Ajouter l'écouteur d'événement
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('touchstart', handleClickOutside); // Pour mobile
+
+        // Nettoyer
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, [isMobileMenuOpen]);
+
+    // Fermer le menu mobile quand on change de page
+    useEffect(() => {
+        setIsMobileMenuOpen(false);
+    }, [location.pathname]);
 
     useEffect(() => {
         // Si on n'est pas sur la page d'accueil, ne pas gérer le défilement
@@ -232,6 +265,7 @@ const Navbar = () => {
                         </Link>
                         
                         <button 
+                            ref={menuButtonRef}
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                             className="text-gray-700 p-2 hover:text-pink-500 transition-colors duration-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-300"
                         >
@@ -244,9 +278,12 @@ const Navbar = () => {
                     </div>
                 </div>
 
-                {/* Menu mobile */}
+                {/* Menu mobile - avec ref pour détecter les clics en dehors */}
                 {isMobileMenuOpen && (
-                    <div className="sm:hidden mt-2 pb-4 border-t border-rose-100 pt-4 animate-fadeIn">
+                    <div 
+                        ref={mobileMenuRef}
+                        className="sm:hidden mt-2 pb-4 border-t border-rose-100 pt-4 animate-fadeIn"
+                    >
                         <div className="flex flex-col space-y-1">
                             {navItems.map((item) => (
                                 <button
@@ -265,18 +302,6 @@ const Navbar = () => {
                                     )}
                                 </button>
                             ))}
-                            
-                            {/* Bouton Connexion mobile */}
-                            <Link
-                                to="/login"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                                className="mt-4 w-full px-4 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-medium rounded-lg 
-                                           hover:from-pink-600 hover:to-rose-600 transition-all duration-300 
-                                           shadow-lg flex items-center justify-center gap-2"
-                            >
-                                <LogIn className="w-5 h-5" />
-                                Se connecter
-                            </Link>
                         </div>
                     </div>
                 )}
