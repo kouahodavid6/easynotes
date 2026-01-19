@@ -484,69 +484,6 @@ const AdminMatiere = () => {
 
                             {/* Indicateurs de filtres actifs et compteur */}
                             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex items-center gap-3">
-                                    {/* Indicateur de filtres actifs */}
-                                    {hasActiveFilters && (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm text-gray-600">
-                                                Filtres actifs:
-                                            </span>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                {searchTerm && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-pink-100 text-pink-700 text-xs">
-                                                        Recherche: "{searchTerm}"
-                                                        <button
-                                                            onClick={() => setSearchTerm('')}
-                                                            className="hover:text-pink-800"
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                        </button>
-                                                    </span>
-                                                )}
-                                                {filterClasse !== 'all' && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs">
-                                                        Classe: {classesUniques.find(c => c.id.toString() === filterClasse)?.libelleCl}
-                                                        <button
-                                                            onClick={() => setFilterClasse('all')}
-                                                            className="hover:text-blue-800"
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                        </button>
-                                                    </span>
-                                                )}
-                                                {filterEnseignant !== 'all' && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs">
-                                                        Enseignant: {enseignantsUniques.find(e => e.id.toString() === filterEnseignant)?.prenomEns} {enseignantsUniques.find(e => e.id.toString() === filterEnseignant)?.nomEns}
-                                                        <button
-                                                            onClick={() => setFilterEnseignant('all')}
-                                                            className="hover:text-green-800"
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                        </button>
-                                                    </span>
-                                                )}
-                                                {filterPeriode !== 'all' && (
-                                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs">
-                                                        Période: {periodesUniques.find(p => p.id.toString() === filterPeriode)?.libellePrd}
-                                                        <button
-                                                            onClick={() => setFilterPeriode('all')}
-                                                            className="hover:text-purple-800"
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                        </button>
-                                                    </span>
-                                                )}
-                                                <button
-                                                    onClick={resetFilters}
-                                                    className="text-xs text-gray-500 hover:text-gray-700 underline"
-                                                >
-                                                    Réinitialiser
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
                                 {/* Compteur de résultats */}
                                 <div className="text-sm text-pink-600">
                                     {hasActiveFilters ? (
