@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import UniversalSidebar from '../../pages/components/UniversalSidebar';
-import UniversalNavbar from '../../pages/components/UniversalNavbar';
+import UniversalSidebar from './UniversalSidebar'
+import UniversalNavbar from './UniversalNavbar';
 import { useAuth } from '../../hooks/useAuth';
 import { getRouteMap, getRoutePrefix } from '../../data/menuData'
 

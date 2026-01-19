@@ -18,8 +18,8 @@ import AdminMatiere from "./pages/DashboardAdmin/AdminMatiere/AdminMatiere";
 
 // Pages Enseignant
 import EnseignantDashboard from "./pages/DashboardEnseignant/EnseignantDashboard/EnseignantDashboard";
+import EnseignantNotes from "./pages/DashboardEnseignant/EnseignantNotes/EnseignantNotes";
 // import EnseignantCours from "./pages/DashboardEnseignant/EnseignantCours/EnseignantCours";
-// import EnseignantNotes from "./pages/DashboardEnseignant/EnseignantNotes/EnseignantNotes";
 // import EnseignantDevoirs from "./pages/DashboardEnseignant/EnseignantDevoirs/EnseignantDevoirs";
 // import EnseignantStatistiques from "./pages/DashboardEnseignant/EnseignantStatistiques/EnseignantStatistiques";
 
@@ -145,6 +145,8 @@ function App() {
                                     } 
                                 />
 
+
+
                                 {/* Routes Enseignant */}
                                 <Route 
                                     path="/enseignant/dashboard" 
@@ -152,16 +154,6 @@ function App() {
                                         <PrivateRoute requiredRole="enseignant">
                                             <UniversalLayout>
                                                 <EnseignantDashboard />
-                                            </UniversalLayout>
-                                        </PrivateRoute>
-                                    } 
-                                />
-                                {/* <Route 
-                                    path="/enseignant/cours" 
-                                    element={
-                                        <PrivateRoute requiredRole="enseignant">
-                                            <UniversalLayout>
-                                                <EnseignantCours />
                                             </UniversalLayout>
                                         </PrivateRoute>
                                     } 
@@ -176,26 +168,8 @@ function App() {
                                         </PrivateRoute>
                                     } 
                                 />
-                                <Route 
-                                    path="/enseignant/devoirs" 
-                                    element={
-                                        <PrivateRoute requiredRole="enseignant">
-                                            <UniversalLayout>
-                                                <EnseignantDevoirs />
-                                            </UniversalLayout>
-                                        </PrivateRoute>
-                                    } 
-                                />
-                                <Route 
-                                    path="/enseignant/statistiques" 
-                                    element={
-                                        <PrivateRoute requiredRole="enseignant">
-                                            <UniversalLayout>
-                                                <EnseignantStatistiques />
-                                            </UniversalLayout>
-                                        </PrivateRoute>
-                                    } 
-                                /> */}
+
+
 
                                 {/* Routes Étudiant */}
                                 <Route 

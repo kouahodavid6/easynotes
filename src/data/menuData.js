@@ -27,13 +27,7 @@ export const adminMenuItems = [
 // Items pour la sidebar du dashboard enseignant
 export const teacherMenuItems = [
     { id: 'dashboard', label: 'Tableau de bord', icon: Home },
-    { id: 'cours', label: 'Mes Cours', icon: BookOpen },
     { id: 'notes', label: 'Gestion des Notes', icon: ClipboardList },
-    { id: 'devoirs', label: 'Devoirs', icon: FileText },
-    { id: 'statistiques', label: 'Statistiques', icon: BarChart3 },
-    { id: 'messagerie', label: 'Messagerie', icon: MessageSquare },
-    { id: 'emploi_temps', label: 'Emploi du Temps', icon: Clock },
-    { id: 'parametres', label: 'Paramètres', icon: Settings },
 ];
 
 // Items pour la sidebar du dashboard étudiant
