@@ -1,23 +1,14 @@
 import { useState, useMemo } from 'react';
 import { 
-    Search, 
-    Plus, 
-    User, 
-    Mail, 
-    Phone, 
-    Calendar, 
-    Edit, 
-    Trash2, 
-    ChevronDown, 
-    UserCheck,
-    X
+    Search, Plus, BookOpen, GraduationCap, Calendar, 
+    Edit, Trash2, ChevronDown, Filter, X
 } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
-import { useEnseignants } from '../../../hooks/useEnseignants'
-import DeleteConfirmModal from '../../components/DeleteConfirmModal'
-import EnseignantModal from "./components/EnseignantModal";
+import { useClasses } from '../../../hooks/useClasses';
+import DeleteConfirmModal from '../../components/DeleteConfirmModal';
+import ClasseModal from "./components/ClasseModal";
 
-// Composant Skeleton pour les cartes de statistiques
+// Composants Skeletons
 const StatCardSkeleton = () => (
     <div className="bg-white rounded-2xl p-4 border border-pink-100 shadow-sm animate-pulse">
         <div className="flex items-center justify-between">
@@ -32,7 +23,6 @@ const StatCardSkeleton = () => (
     </div>
 );
 
-// Composant Skeleton pour les lignes du tableau
 const TableRowSkeleton = () => (
     <tr className="animate-pulse">
         <td className="p-4">
@@ -45,16 +35,13 @@ const TableRowSkeleton = () => (
             </div>
         </td>
         <td className="p-4">
-            <div className="space-y-2">
-                <div className="h-3 w-40 bg-gray-200 rounded"></div>
-                <div className="h-3 w-32 bg-gray-200 rounded"></div>
-            </div>
-        </td>
-        <td className="p-4">
             <div className="h-6 w-24 bg-gray-200 rounded-full"></div>
         </td>
         <td className="p-4">
             <div className="h-4 w-20 bg-gray-200 rounded"></div>
+        </td>
+        <td className="p-4">
+            <div className="h-4 w-24 bg-gray-200 rounded"></div>
         </td>
         <td className="p-4">
             <div className="flex items-center gap-2">
@@ -65,7 +52,6 @@ const TableRowSkeleton = () => (
     </tr>
 );
 
-// Composant Skeleton pour la barre de recherche
 const SearchBarSkeleton = () => (
     <div className="bg-white rounded-2xl p-4 sm:p-6 border border-pink-100 shadow-sm animate-pulse">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -80,47 +66,64 @@ const SearchBarSkeleton = () => (
     </div>
 );
 
-const AdminEnseignant = () => {
+const AdminClasse = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('recent');
-    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [filterNiveau, setFilterNiveau] = useState('all');
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [enseignantToDelete, setEnseignantToDelete] = useState(null);
-    const [enseignantToEdit, setEnseignantToEdit] = useState(null);
+    const [classeToDelete, setClasseToDelete] = useState(null);
+    const [classeToEdit, setClasseToEdit] = useState(null);
 
     const { 
-        enseignants, 
+        classes, 
         isLoading, 
-        createEnseignantAsync, 
-        updateEnseignantAsync, 
-        deleteEnseignantAsync,
+        createClasseAsync, 
+        updateClasseAsync, 
+        deleteClasseAsync,
         isCreating, 
         isUpdating, 
         isDeleting 
-    } = useEnseignants();
+    } = useClasses();
 
-    // Filtrer et trier les enseignants
-    const filteredEnseignants = useMemo(() => {
-        let filtered = [...(enseignants || [])];
+    // Extraire les niveaux uniques pour le filtre
+    const niveauxUniques = useMemo(() => {
+        if (!classes) return [];
+        const niveaux = [...new Set(classes.map(c => c.niveauCl).filter(Boolean))];
+        return niveaux.sort();
+    }, [classes]);
+
+    // Filtrer, trier et rechercher les classes
+    const filteredClasses = useMemo(() => {
+        let filtered = [...(classes || [])];
         
         // Recherche
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
-            filtered = filtered.filter(enseignant => 
-                enseignant.nomEns?.toLowerCase().includes(term) ||
-                enseignant.prenomEns?.toLowerCase().includes(term) ||
-                enseignant.matricule?.toLowerCase().includes(term) ||
-                enseignant.email?.toLowerCase().includes(term)
+            filtered = filtered.filter(classe => 
+                classe.libelleCl?.toLowerCase().includes(term) ||
+                classe.niveauCl?.toLowerCase().includes(term)
             );
+        }
+        
+        // Filtre par niveau
+        if (filterNiveau !== 'all') {
+            filtered = filtered.filter(classe => classe.niveauCl === filterNiveau);
         }
         
         // Tri
         switch(sortBy) {
-            case 'nom-asc':
-                filtered.sort((a, b) => a.nomEns?.localeCompare(b.nomEns));
+            case 'libelle-asc':
+                filtered.sort((a, b) => a.libelleCl?.localeCompare(b.libelleCl));
                 break;
-            case 'nom-desc':
-                filtered.sort((a, b) => b.nomEns?.localeCompare(a.nomEns));
+            case 'libelle-desc':
+                filtered.sort((a, b) => b.libelleCl?.localeCompare(a.libelleCl));
+                break;
+            case 'niveau-asc':
+                filtered.sort((a, b) => a.niveauCl?.localeCompare(b.niveauCl));
+                break;
+            case 'niveau-desc':
+                filtered.sort((a, b) => b.niveauCl?.localeCompare(a.niveauCl));
                 break;
             case 'recent':
                 filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -133,42 +136,42 @@ const AdminEnseignant = () => {
         }
         
         return filtered;
-    }, [enseignants, searchTerm, sortBy]);
+    }, [classes, searchTerm, filterNiveau, sortBy]);
 
     // Gestion de l'ajout/modification
-    const handleSubmitEnseignant = async (formData, id = null) => {
+    const handleSubmitClasse = async (formData, id = null) => {
         try {
             if (id) {
                 // Modification
-                await updateEnseignantAsync({ id, enseignantData: formData });
-                setEnseignantToEdit(null);
+                await updateClasseAsync({ id, classeData: formData });
+                setClasseToEdit(null);
             } else {
                 // Ajout
-                await createEnseignantAsync(formData);
+                await createClasseAsync(formData);
             }
-            setIsFormModalOpen(false);
+            setIsModalOpen(false);
         } catch (error) {
             console.error('Erreur:', error);
         }
     };
 
     // Gestion de la suppression
-    const handleDeleteEnseignant = async () => {
-        if (enseignantToDelete) {
-            await deleteEnseignantAsync(enseignantToDelete.id);
+    const handleDeleteClasse = async () => {
+        if (classeToDelete) {
+            await deleteClasseAsync(classeToDelete.id);
             setIsDeleteModalOpen(false);
-            setEnseignantToDelete(null);
+            setClasseToDelete(null);
         }
     };
 
-    const openDeleteModal = (enseignant) => {
-        setEnseignantToDelete(enseignant);
+    const openDeleteModal = (classe) => {
+        setClasseToDelete(classe);
         setIsDeleteModalOpen(true);
     };
 
-    const openEditModal = (enseignant) => {
-        setEnseignantToEdit(enseignant);
-        setIsFormModalOpen(true);
+    const openEditModal = (classe) => {
+        setClasseToEdit(classe);
+        setIsModalOpen(true);
     };
 
     const formatDate = (dateString) => {
@@ -179,13 +182,32 @@ const AdminEnseignant = () => {
         });
     };
 
+    // Calculer les statistiques
+    const stats = useMemo(() => {
+        if (!classes) return { total: 0, parNiveau: {} };
+        
+        const parNiveau = {};
+        classes.forEach(classe => {
+            if (classe.niveauCl) {
+                parNiveau[classe.niveauCl] = (parNiveau[classe.niveauCl] || 0) + 1;
+            }
+        });
+        
+        return {
+            total: classes.length,
+            parNiveau
+        };
+    }, [classes]);
+
     // Obtenir le label du tri sélectionné
     const getSortLabel = (value) => {
         const sortLabels = {
-            'recent': 'Plus récents',
-            'ancien': 'Plus anciens',
-            'nom-asc': 'A → Z',
-            'nom-desc': 'Z → A'
+            'recent': 'Plus récentes',
+            'ancien': 'Plus anciennes',
+            'libelle-asc': 'A → Z',
+            'libelle-desc': 'Z → A',
+            'niveau-asc': 'Niveau ↑',
+            'niveau-desc': 'Niveau ↓'
         };
         return sortLabels[value] || 'Trier par';
     };
@@ -193,17 +215,18 @@ const AdminEnseignant = () => {
     // Réinitialiser les filtres
     const resetFilters = () => {
         setSearchTerm('');
+        setFilterNiveau('all');
     };
 
     // Vérifier si des filtres sont actifs
-    const hasActiveFilters = searchTerm;
+    const hasActiveFilters = searchTerm || filterNiveau !== 'all';
 
     return (
         <>
             <div className="space-y-6">
                 <PageHeader 
-                    title="Enseignants"
-                    subtitle="Gérer les enseignants intervenants dans votre établissement"
+                    title="Classes"
+                    subtitle="Gérer les classes de votre établissement"
                 />
 
                 {/* Barre de contrôle avec skeleton */}
@@ -219,7 +242,7 @@ const AdminEnseignant = () => {
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                     <input
                                         type="text"
-                                        placeholder="Rechercher par nom, prénom, matricule..."
+                                        placeholder="Rechercher par libellé, niveau..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="pl-10 w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-colors"
@@ -236,6 +259,22 @@ const AdminEnseignant = () => {
 
                                 {/* Filtres et actions */}
                                 <div className="flex items-center gap-3">
+                                    {/* Filtre par niveau */}
+                                    <div className="relative">
+                                        <select
+                                            value={filterNiveau}
+                                            onChange={(e) => setFilterNiveau(e.target.value)}
+                                            className="appearance-none pl-10 pr-10 py-2.5 rounded-xl border border-gray-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-colors bg-white"
+                                        >
+                                            <option value="all">Tous les niveaux</option>
+                                            {niveauxUniques.map((niveau) => (
+                                                <option key={niveau} value={niveau}>{niveau}</option>
+                                            ))}
+                                        </select>
+                                        <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                                    </div>
+
                                     {/* Tri */}
                                     <div className="relative">
                                         <select
@@ -243,10 +282,12 @@ const AdminEnseignant = () => {
                                             onChange={(e) => setSortBy(e.target.value)}
                                             className="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-gray-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-colors bg-white"
                                         >
-                                            <option value="recent">Plus récents</option>
-                                            <option value="ancien">Plus anciens</option>
-                                            <option value="nom-asc">A → Z</option>
-                                            <option value="nom-desc">Z → A</option>
+                                            <option value="recent">Plus récentes</option>
+                                            <option value="ancien">Plus anciennes</option>
+                                            <option value="libelle-asc">A → Z</option>
+                                            <option value="libelle-desc">Z → A</option>
+                                            <option value="niveau-asc">Niveau ↑</option>
+                                            <option value="niveau-desc">Niveau ↓</option>
                                         </select>
                                         <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                                     </div>
@@ -254,13 +295,13 @@ const AdminEnseignant = () => {
                                     {/* Bouton ajouter */}
                                     <button
                                         onClick={() => {
-                                            setEnseignantToEdit(null);
-                                            setIsFormModalOpen(true);
+                                            setClasseToEdit(null);
+                                            setIsModalOpen(true);
                                         }}
                                         className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-2.5 rounded-xl hover:from-pink-600 hover:to-rose-600 transition-all shadow-lg hover:shadow-pink-200/50"
                                     >
                                         <Plus className="h-4 w-4" />
-                                        <span className="font-medium">Nouveau</span>
+                                        <span className="font-medium">Nouvelle</span>
                                     </button>
                                 </div>
                             </div>
@@ -271,12 +312,12 @@ const AdminEnseignant = () => {
                                 <div className="text-sm text-pink-600">
                                     {hasActiveFilters ? (
                                         <span>
-                                            {filteredEnseignants.length} résultat{filteredEnseignants.length !== 1 ? 's' : ''} {' '}
-                                            sur {enseignants?.length || 0} enseignant{enseignants?.length !== 1 ? 's' : ''}
+                                            {filteredClasses.length} résultat{filteredClasses.length !== 1 ? 's' : ''} {' '}
+                                            sur {classes?.length || 0} classe{classes?.length !== 1 ? 's' : ''}
                                         </span>
                                     ) : (
                                         <span>
-                                            {enseignants?.length || 0} enseignant{enseignants?.length !== 1 ? 's' : ''}
+                                            {classes?.length || 0} classe{classes?.length !== 1 ? 's' : ''}
                                         </span>
                                     )}
                                 </div>
@@ -305,11 +346,11 @@ const AdminEnseignant = () => {
                             <div className="bg-gradient-to-r from-pink-50 to-rose-50 rounded-2xl p-4 border border-pink-100">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-500 text-sm">Total enseignants</p>
-                                        <p className="text-2xl font-bold text-gray-900">{enseignants?.length || 0}</p>
+                                        <p className="text-gray-500 text-sm">Total classes</p>
+                                        <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
                                     </div>
                                     <div className="p-2 rounded-lg bg-pink-100">
-                                        <User className="h-6 w-6 text-pink-500" />
+                                        <BookOpen className="h-6 w-6 text-pink-500" />
                                     </div>
                                 </div>
                             </div>
@@ -317,17 +358,11 @@ const AdminEnseignant = () => {
                             <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-4 border border-blue-100">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-500 text-sm">Ce mois</p>
-                                        <p className="text-2xl font-bold text-gray-900">
-                                            {enseignants?.filter(e => {
-                                                const date = new Date(e.created_at);
-                                                const now = new Date();
-                                                return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-                                            }).length || 0}
-                                        </p>
+                                        <p className="text-gray-500 text-sm">Niveaux</p>
+                                        <p className="text-2xl font-bold text-gray-900">{niveauxUniques.length}</p>
                                     </div>
                                     <div className="p-2 rounded-lg bg-blue-100">
-                                        <Calendar className="h-6 w-6 text-blue-500" />
+                                        <GraduationCap className="h-6 w-6 text-blue-500" />
                                     </div>
                                 </div>
                             </div>
@@ -335,11 +370,17 @@ const AdminEnseignant = () => {
                             <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-4 border border-emerald-100">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-500 text-sm">Actifs</p>
-                                        <p className="text-2xl font-bold text-gray-900">{enseignants?.length || 0}</p>
+                                        <p className="text-gray-500 text-sm">Ce mois</p>
+                                        <p className="text-2xl font-bold text-gray-900">
+                                            {classes?.filter(c => {
+                                                const date = new Date(c.created_at);
+                                                const now = new Date();
+                                                return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+                                            }).length || 0}
+                                        </p>
                                     </div>
                                     <div className="p-2 rounded-lg bg-emerald-100">
-                                        <UserCheck className="h-6 w-6 text-emerald-500" />
+                                        <Calendar className="h-6 w-6 text-emerald-500" />
                                     </div>
                                 </div>
                             </div>
@@ -347,17 +388,18 @@ const AdminEnseignant = () => {
                     )}
                 </div>
 
-                {/* Liste des enseignants avec skeletons */}
+                {/* Liste des classes avec skeletons */}
                 <div className="bg-white rounded-2xl border border-pink-100 shadow-sm overflow-hidden">
                     {isLoading ? (
                         <>
                             {/* En-tête du tableau pendant le chargement */}
                             <div className="bg-pink-50 p-4">
                                 <div className="flex space-x-4">
-                                    <div className="h-4 w-1/4 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/4 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/4 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/4 bg-gray-300 rounded animate-pulse"></div>
+                                    <div className="h-4 w-1/5 bg-gray-300 rounded animate-pulse"></div>
+                                    <div className="h-4 w-1/5 bg-gray-300 rounded animate-pulse"></div>
+                                    <div className="h-4 w-1/5 bg-gray-300 rounded animate-pulse"></div>
+                                    <div className="h-4 w-1/5 bg-gray-300 rounded animate-pulse"></div>
+                                    <div className="h-4 w-1/5 bg-gray-300 rounded animate-pulse"></div>
                                 </div>
                             </div>
                             
@@ -370,13 +412,13 @@ const AdminEnseignant = () => {
                                 </tbody>
                             </table>
                         </>
-                    ) : filteredEnseignants.length === 0 ? (
+                    ) : filteredClasses.length === 0 ? (
                         <div className="p-8 text-center">
-                            <User className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                            <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                             <p className="text-gray-500">
                                 {hasActiveFilters 
-                                    ? 'Aucun enseignant ne correspond à votre recherche' 
-                                    : 'Aucun enseignant enregistré'
+                                    ? 'Aucune classe ne correspond à votre recherche' 
+                                    : 'Aucune classe enregistrée'
                                 }
                             </p>
                             {hasActiveFilters ? (
@@ -388,10 +430,10 @@ const AdminEnseignant = () => {
                                 </button>
                             ) : (
                                 <button
-                                    onClick={() => setIsFormModalOpen(true)}
+                                    onClick={() => setIsModalOpen(true)}
                                     className="mt-3 text-pink-500 hover:text-pink-600 font-medium"
                                 >
-                                    Ajouter le premier enseignant
+                                    Ajouter la première classe
                                 </button>
                             )}
                         </div>
@@ -402,10 +444,10 @@ const AdminEnseignant = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <span className="font-medium text-gray-700">
-                                            Liste des enseignants
+                                            Liste des classes
                                         </span>
                                         <span className="ml-2 text-sm text-gray-500">
-                                            ({filteredEnseignants.length} résultat{filteredEnseignants.length !== 1 ? 's' : ''})
+                                            ({filteredClasses.length} résultat{filteredClasses.length !== 1 ? 's' : ''})
                                         </span>
                                     </div>
                                     <div className="text-sm text-gray-600">
@@ -419,68 +461,49 @@ const AdminEnseignant = () => {
                                 <table className="w-full">
                                     <thead className="bg-pink-50">
                                         <tr>
-                                            <th className="text-left p-4 font-medium text-gray-700">Enseignant</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Contact</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Matricule</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Date</th>
+                                            <th className="text-left p-4 font-medium text-gray-700">Classe</th>
+                                            <th className="text-left p-4 font-medium text-gray-700">Niveau</th>
+                                            <th className="text-left p-4 font-medium text-gray-700">Date création</th>
+                                            <th className="text-left p-4 font-medium text-gray-700">Dernière mise à jour</th>
                                             <th className="text-left p-4 font-medium text-gray-700">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {filteredEnseignants.map((enseignant) => (
-                                            <tr key={enseignant.id} className="hover:bg-pink-50/50 transition-colors">
+                                        {filteredClasses.map((classe) => (
+                                            <tr key={classe.id} className="hover:bg-pink-50/50 transition-colors">
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center overflow-hidden">
-                                                            {enseignant.photo ? (
-                                                                <img 
-                                                                    src={enseignant.photo} 
-                                                                    alt={enseignant.nomEns}
-                                                                    className="w-full h-full object-cover"
-                                                                />
-                                                            ) : (
-                                                                <User className="h-5 w-5 text-white" />
-                                                            )}
+                                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                                                            <BookOpen className="h-5 w-5 text-white" />
                                                         </div>
                                                         <div>
-                                                            <p className="font-medium text-gray-900">
-                                                                {enseignant.prenomEns} {enseignant.nomEns}
-                                                            </p>
-                                                            <p className="text-sm text-gray-500">Enseignant</p>
+                                                            <p className="font-medium text-gray-900">{classe.libelleCl}</p>
+                                                            <p className="text-sm text-gray-500">Classe</p>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
-                                                    <div className="space-y-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <Mail className="h-3 w-3 text-gray-400" />
-                                                            <span className="text-sm text-gray-600">{enseignant.email}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Phone className="h-3 w-3 text-gray-400" />
-                                                            <span className="text-sm text-gray-600">{enseignant.telEns}</span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-sm font-medium">
-                                                        {enseignant.matricule}
+                                                    <span className="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
+                                                        {classe.niveauCl}
                                                     </span>
                                                 </td>
                                                 <td className="p-4 text-sm text-gray-600">
-                                                    {formatDate(enseignant.created_at)}
+                                                    {formatDate(classe.created_at)}
+                                                </td>
+                                                <td className="p-4 text-sm text-gray-600">
+                                                    {formatDate(classe.updated_at)}
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
                                                         <button
-                                                            onClick={() => openEditModal(enseignant)}
+                                                            onClick={() => openEditModal(classe)}
                                                             className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-600 transition-colors"
                                                             title="Modifier"
                                                         >
                                                             <Edit className="h-4 w-4" />
                                                         </button>
                                                         <button
-                                                            onClick={() => openDeleteModal(enseignant)}
+                                                            onClick={() => openDeleteModal(classe)}
                                                             className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors"
                                                             title="Supprimer"
                                                         >
@@ -499,29 +522,29 @@ const AdminEnseignant = () => {
             </div>
 
             {/* Modals */}
-            <EnseignantModal
-                isOpen={isFormModalOpen}
+            <ClasseModal
+                isOpen={isModalOpen}
                 onClose={() => {
-                    setIsFormModalOpen(false);
-                    setEnseignantToEdit(null);
+                    setIsModalOpen(false);
+                    setClasseToEdit(null);
                 }}
-                onSubmit={handleSubmitEnseignant}
+                onSubmit={handleSubmitClasse}
                 isSubmitting={isCreating || isUpdating}
-                enseignant={enseignantToEdit}
+                classe={classeToEdit}
             />
 
             <DeleteConfirmModal
                 isOpen={isDeleteModalOpen}
-                onConfirm={handleDeleteEnseignant}
+                onConfirm={handleDeleteClasse}
                 onCancel={() => {
                     setIsDeleteModalOpen(false);
-                    setEnseignantToDelete(null);
+                    setClasseToDelete(null);
                 }}
-                entityName="l'enseignant"
+                entityName="la classe"
                 isDeleting={isDeleting}
             />
         </>
     );
 };
 
-export default AdminEnseignant;
+export default AdminClasse;

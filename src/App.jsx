@@ -9,6 +9,7 @@ import AuthInitializer from "./components/AuthInitializer";
 import AdminLayout from "./pages/DashboardAdmin/layouts/AdminLayout";
 import AdminDashboard from "./pages/DashboardAdmin/AdminDashboard/AdminDashboard";
 import AdminEnseignant from "./pages/DashboardAdmin/AdminEnseignant/AdminEnseignant";
+import AdminClasse from "./pages/DashboardAdmin/AdminClasse/AdminClasse";
 
 import EnseignantDashboard from "./pages/DashboardEnseignant/EnseignantDashboard";
 
@@ -83,7 +84,6 @@ function App() {
                                         </PrivateRoute>
                                     } 
                                 />
-
                                 <Route 
                                     path="/admin/enseignant" 
                                     element={
@@ -94,7 +94,19 @@ function App() {
                                         </PrivateRoute>
                                     } 
                                 />
-                                
+                                <Route 
+                                    path="/admin/classe" 
+                                    element={
+                                        <PrivateRoute requiredRole="admin">
+                                            <AdminLayout>
+                                                <AdminClasse />
+                                            </AdminLayout>
+                                        </PrivateRoute>
+                                    } 
+                                />
+
+
+
                                 {/* Routes enseignant */}
                                 <Route 
                                     path="/enseignant/dashboard" 
