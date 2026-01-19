@@ -9,8 +9,8 @@ const routeMap = {
     enseignant: '/admin/enseignant',
     classe: '/admin/classe',
     etudiant: '/admin/etudiant',
-    matiere: '/admin/matiere',
-    periode: '/admin/periode'
+    periode: '/admin/periode',
+    matiere: '/admin/matiere'
 };
 
 // Fonction pour déterminer l'item actif

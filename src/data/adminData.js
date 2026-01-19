@@ -13,6 +13,6 @@ export const adminMenuItems = [
     { id: 'enseignant', label: 'Enseignants', icon: Users },
     { id: 'classe', label: 'Classes', icon: School2Icon },
     { id: 'etudiant', label: 'Étudiants', icon: GraduationCap },
-    { id: 'matiere', label: 'Matières', icon: ChartColumnStacked },
     { id: 'periode', label: 'Périodes', icon: CalendarRange },
+    { id: 'matiere', label: 'Matières', icon: ChartColumnStacked },
 ];
