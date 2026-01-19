@@ -13,6 +13,7 @@ import AdminEnseignant from "./pages/DashboardAdmin/AdminEnseignant/AdminEnseign
 import AdminClasse from "./pages/DashboardAdmin/AdminClasse/AdminClasse";
 import AdminEtudiant from "./pages/DashboardAdmin/AdminEtudiant/AdminEtudiant";
 import AdminPeriode from "./pages/DashboardAdmin/AdminPeriode/AdminPeriode";
+import AdminMatiere from "./pages/DashboardAdmin/AdminMatiere/AdminMatiere";
 
 import EnseignantDashboard from "./pages/DashboardEnseignant/EnseignantDashboard";
 
@@ -123,6 +124,16 @@ function App() {
                                         <PrivateRoute requiredRole="admin">
                                             <AdminLayout>
                                                 <AdminPeriode />
+                                            </AdminLayout>
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                <Route 
+                                    path="/admin/matiere" 
+                                    element={
+                                        <PrivateRoute requiredRole="admin">
+                                            <AdminLayout>
+                                                <AdminMatiere />
                                             </AdminLayout>
                                         </PrivateRoute>
                                     } 
