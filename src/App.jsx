@@ -6,8 +6,9 @@ import NotFound from "./components/NotFound";
 import PrivateRoute from "./components/PrivateRoute";
 import PublicRoute from "./components/PublicRoute";
 import AuthInitializer from "./components/AuthInitializer";
-import AdminLayout from "./pages/DashboardAdmin/layouts/AdminLayout";
+import UniversalLayout from "./components/layouts/UniversalLayout";
 
+// Pages Admin
 import AdminDashboard from "./pages/DashboardAdmin/AdminDashboard/AdminDashboard";
 import AdminEnseignant from "./pages/DashboardAdmin/AdminEnseignant/AdminEnseignant";
 import AdminClasse from "./pages/DashboardAdmin/AdminClasse/AdminClasse";
@@ -15,9 +16,16 @@ import AdminEtudiant from "./pages/DashboardAdmin/AdminEtudiant/AdminEtudiant";
 import AdminPeriode from "./pages/DashboardAdmin/AdminPeriode/AdminPeriode";
 import AdminMatiere from "./pages/DashboardAdmin/AdminMatiere/AdminMatiere";
 
-import EnseignantDashboard from "./pages/DashboardEnseignant/EnseignantDashboard";
+// Pages Enseignant
+import EnseignantDashboard from "./pages/DashboardEnseignant/EnseignantDashboard/EnseignantDashboard";
+// import EnseignantCours from "./pages/DashboardEnseignant/EnseignantCours/EnseignantCours";
+// import EnseignantNotes from "./pages/DashboardEnseignant/EnseignantNotes/EnseignantNotes";
+// import EnseignantDevoirs from "./pages/DashboardEnseignant/EnseignantDevoirs/EnseignantDevoirs";
+// import EnseignantStatistiques from "./pages/DashboardEnseignant/EnseignantStatistiques/EnseignantStatistiques";
 
-import EtudiantDashboard from "./pages/DashboardEtudiant/EtudiantDashboard";
+// Pages Étudiant
+import EtudiantDashboard from "./pages/DashboardEtudiant/EtudiantDashboard/EtudiantDashboard";
+// import EtudiantNotes from "./pages/DashboardEtudiant/EtudiantNotes/EtudiantNotes";
 
 // Configuration AOS
 import AOS from 'aos';
@@ -27,7 +35,6 @@ import { useEffect } from "react";
 // Toaster
 import AppToaster from "./components/AppToaster";
 
-// Création du client React Query
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
@@ -54,11 +61,10 @@ function App() {
                 <div className="min-h-screen bg-gray-50">
                     <AppToaster />
                     
-                    {/* Initialiseur d'authentification pour la sécurité globale */}
                     <AuthInitializer>
                         <main>
                             <Routes>
-                                {/* Routes publiques - Protégées avec PublicRoute */}
+                                {/* Routes publiques */}
                                 <Route 
                                     path="/" 
                                     element={
@@ -77,14 +83,14 @@ function App() {
                                     } 
                                 />
                                 
-                                {/* Routes admin - CHANGER ICI */}
+                                {/* Routes Admin */}
                                 <Route 
                                     path="/admin/dashboard" 
                                     element={
                                         <PrivateRoute requiredRole="admin">
-                                            <AdminLayout>
+                                            <UniversalLayout>
                                                 <AdminDashboard />
-                                            </AdminLayout>
+                                            </UniversalLayout>
                                         </PrivateRoute>
                                     } 
                                 />
@@ -92,9 +98,9 @@ function App() {
                                     path="/admin/enseignant" 
                                     element={
                                         <PrivateRoute requiredRole="admin">
-                                            <AdminLayout>
+                                            <UniversalLayout>
                                                 <AdminEnseignant />
-                                            </AdminLayout>
+                                            </UniversalLayout>
                                         </PrivateRoute>
                                     } 
                                 />
@@ -102,9 +108,9 @@ function App() {
                                     path="/admin/classe" 
                                     element={
                                         <PrivateRoute requiredRole="admin">
-                                            <AdminLayout>
+                                            <UniversalLayout>
                                                 <AdminClasse />
-                                            </AdminLayout>
+                                            </UniversalLayout>
                                         </PrivateRoute>
                                     } 
                                 />
@@ -112,9 +118,9 @@ function App() {
                                     path="/admin/etudiant" 
                                     element={
                                         <PrivateRoute requiredRole="admin">
-                                            <AdminLayout>
+                                            <UniversalLayout>
                                                 <AdminEtudiant />
-                                            </AdminLayout>
+                                            </UniversalLayout>
                                         </PrivateRoute>
                                     } 
                                 />
@@ -122,9 +128,9 @@ function App() {
                                     path="/admin/periode" 
                                     element={
                                         <PrivateRoute requiredRole="admin">
-                                            <AdminLayout>
+                                            <UniversalLayout>
                                                 <AdminPeriode />
-                                            </AdminLayout>
+                                            </UniversalLayout>
                                         </PrivateRoute>
                                     } 
                                 />
@@ -132,39 +138,121 @@ function App() {
                                     path="/admin/matiere" 
                                     element={
                                         <PrivateRoute requiredRole="admin">
-                                            <AdminLayout>
+                                            <UniversalLayout>
                                                 <AdminMatiere />
-                                            </AdminLayout>
+                                            </UniversalLayout>
                                         </PrivateRoute>
                                     } 
                                 />
 
-
-
-                                {/* Routes enseignant */}
+                                {/* Routes Enseignant */}
                                 <Route 
                                     path="/enseignant/dashboard" 
                                     element={
                                         <PrivateRoute requiredRole="enseignant">
-                                            <EnseignantDashboard />
+                                            <UniversalLayout>
+                                                <EnseignantDashboard />
+                                            </UniversalLayout>
                                         </PrivateRoute>
                                     } 
                                 />
-                                
-                                {/* Routes étudiant */}
+                                {/* <Route 
+                                    path="/enseignant/cours" 
+                                    element={
+                                        <PrivateRoute requiredRole="enseignant">
+                                            <UniversalLayout>
+                                                <EnseignantCours />
+                                            </UniversalLayout>
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                <Route 
+                                    path="/enseignant/notes" 
+                                    element={
+                                        <PrivateRoute requiredRole="enseignant">
+                                            <UniversalLayout>
+                                                <EnseignantNotes />
+                                            </UniversalLayout>
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                <Route 
+                                    path="/enseignant/devoirs" 
+                                    element={
+                                        <PrivateRoute requiredRole="enseignant">
+                                            <UniversalLayout>
+                                                <EnseignantDevoirs />
+                                            </UniversalLayout>
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                <Route 
+                                    path="/enseignant/statistiques" 
+                                    element={
+                                        <PrivateRoute requiredRole="enseignant">
+                                            <UniversalLayout>
+                                                <EnseignantStatistiques />
+                                            </UniversalLayout>
+                                        </PrivateRoute>
+                                    } 
+                                /> */}
+
+                                {/* Routes Étudiant */}
                                 <Route 
                                     path="/etudiant/dashboard" 
                                     element={
                                         <PrivateRoute requiredRole="etudiant">
-                                            <EtudiantDashboard />
+                                            <UniversalLayout>
+                                                <EtudiantDashboard />
+                                            </UniversalLayout>
                                         </PrivateRoute>
                                     } 
                                 />
+                                {/* <Route 
+                                    path="/etudiant/notes" 
+                                    element={
+                                        <PrivateRoute requiredRole="etudiant">
+                                            <UniversalLayout>
+                                                <EtudiantNotes />
+                                            </UniversalLayout>
+                                        </PrivateRoute>
+                                    } 
+                                /> */}
+
+                                {/* Routes communes */}
+                                {/* <Route 
+                                    path=":role/profil" 
+                                    element={
+                                        <PrivateRoute>
+                                            <UniversalLayout>
+                                                <div>Page de profil</div>
+                                            </UniversalLayout>
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                <Route 
+                                    path=":role/parametres" 
+                                    element={
+                                        <PrivateRoute>
+                                            <UniversalLayout>
+                                                <div>Page des paramètres</div>
+                                            </UniversalLayout>
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                <Route 
+                                    path=":role/notifications" 
+                                    element={
+                                        <PrivateRoute>
+                                            <UniversalLayout>
+                                                <div>Page des notifications</div>
+                                            </UniversalLayout>
+                                        </PrivateRoute>
+                                    } 
+                                /> */}
                                 
-                                {/* Route 404 personnalisée */}
+                                {/* Routes 404 */}
                                 <Route path="/not-found" element={<NotFound />} />
-                                
-                                {/* Catch-all route - redirige vers 404 */}
                                 <Route path="*" element={<NotFound />} />
                             </Routes>
                         </main>

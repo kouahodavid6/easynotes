@@ -1,46 +1,46 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { getRoutePrefix } from '../data/menuData';
 
 const PrivateRoute = ({ children, requiredRole }) => {
     const { isAuthenticated, user, isLoading } = useAuth();
+    const location = useLocation();
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-white">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500"></div>
-                    <p className="text-gray-600">Vérification des droits d'accès...</p>
-                </div>
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500"></div>
             </div>
         );
     }
 
-    if (!isAuthenticated) {
-        return <Navigate to="/login" replace />;
+    if (!isAuthenticated || !user) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Vérifier le rôle si spécifié
+    // Vérification du rôle si spécifié
     if (requiredRole) {
-        const roleMap = {
-            'admin': 3,
-            'enseignant': 1,
-            'etudiant': 2
-        };
+        const userRole = user.role;
+        let hasAccess = false;
 
-        const requiredRoleId = roleMap[requiredRole];
-        
-        if (user?.role !== requiredRoleId) {
-            // Rediriger vers le dashboard approprié
-            switch(user?.role) {
-                case 1:
-                    return <Navigate to="/enseignant/dashboard" replace />;
-                case 2:
-                    return <Navigate to="/etudiant/dashboard" replace />;
-                case 3:
-                    return <Navigate to="/admin/dashboard" replace />;
-                default:
-                    return <Navigate to="/" replace />;
-            }
+        switch(requiredRole) {
+            case 'admin':
+                hasAccess = userRole === 3;
+                break;
+            case 'enseignant':
+                hasAccess = userRole === 1;
+                break;
+            case 'etudiant':
+                hasAccess = userRole === 2;
+                break;
+            default:
+                hasAccess = true;
+        }
+
+        if (!hasAccess) {
+            // Rediriger vers le dashboard correspondant à son rôle
+            const routePrefix = getRoutePrefix(userRole);
+            return <Navigate to={`${routePrefix}/dashboard`} replace />;
         }
     }
 
