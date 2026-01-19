@@ -7,9 +7,11 @@ import PrivateRoute from "./components/PrivateRoute";
 import PublicRoute from "./components/PublicRoute";
 import AuthInitializer from "./components/AuthInitializer";
 import AdminLayout from "./pages/DashboardAdmin/layouts/AdminLayout";
+
 import AdminDashboard from "./pages/DashboardAdmin/AdminDashboard/AdminDashboard";
 import AdminEnseignant from "./pages/DashboardAdmin/AdminEnseignant/AdminEnseignant";
 import AdminClasse from "./pages/DashboardAdmin/AdminClasse/AdminClasse";
+import AdminEtudiant from "./pages/DashboardAdmin/AdminEtudiant/AdminEtudiant";
 
 import EnseignantDashboard from "./pages/DashboardEnseignant/EnseignantDashboard";
 
@@ -100,6 +102,16 @@ function App() {
                                         <PrivateRoute requiredRole="admin">
                                             <AdminLayout>
                                                 <AdminClasse />
+                                            </AdminLayout>
+                                        </PrivateRoute>
+                                    } 
+                                />
+                                <Route 
+                                    path="/admin/etudiant" 
+                                    element={
+                                        <PrivateRoute requiredRole="admin">
+                                            <AdminLayout>
+                                                <AdminEtudiant />
                                             </AdminLayout>
                                         </PrivateRoute>
                                     } 
