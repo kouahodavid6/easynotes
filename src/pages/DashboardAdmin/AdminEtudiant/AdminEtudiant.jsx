@@ -11,13 +11,18 @@ import {
     ChevronDown, 
     GraduationCap,
     X,
-    Users
+    Users,
+    FileText,
+    Download,
+    Filter
 } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
 import { useEtudiants } from '../../../hooks/useEtudiants';
 import { useClasses } from '../../../hooks/useClasses';
 import DeleteConfirmModal from '../../components/DeleteConfirmModal';
 import EtudiantModal from "./components/EtudiantModal";
+import { exportToPDF } from '../../../utils/pdfExport';
+import { exportToExcel } from '../../../utils/excelExport';
 
 // Composant Skeleton pour les cartes de statistiques
 const StatCardSkeleton = () => (
@@ -93,6 +98,7 @@ const AdminEtudiant = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [etudiantToDelete, setEtudiantToDelete] = useState(null);
     const [etudiantToEdit, setEtudiantToEdit] = useState(null);
+    const [isExporting, setIsExporting] = useState(false);
 
     const { 
         etudiants, 
@@ -107,7 +113,7 @@ const AdminEtudiant = () => {
 
     const { classes, isLoading: isLoadingClasses } = useClasses();
 
-    // Extraire les classes uniques pour le filtre
+    // Extraire les classes uniques pour le filtre avec format d'affichage amélioré
     const classesUniques = useMemo(() => {
         if (!etudiants) return [];
         const uniqueClasses = [];
@@ -116,12 +122,35 @@ const AdminEtudiant = () => {
         etudiants.forEach(etudiant => {
             if (etudiant.classe && !seen.has(etudiant.classe.id)) {
                 seen.add(etudiant.classe.id);
-                uniqueClasses.push(etudiant.classe);
+                uniqueClasses.push({
+                    ...etudiant.classe,
+                    // Format d'affichage combiné pour le select
+                    displayName: `${etudiant.classe.niveauCl} - ${etudiant.classe.libelleCl}`
+                });
             }
         });
         
-        return uniqueClasses.sort((a, b) => a.libelleCl?.localeCompare(b.libelleCl));
+        // Trier d'abord par niveau, puis par libellé
+        return uniqueClasses.sort((a, b) => {
+            const niveauCompare = (a.niveauCl || '').localeCompare(b.niveauCl || '');
+            if (niveauCompare !== 0) return niveauCompare;
+            return (a.libelleCl || '').localeCompare(b.libelleCl || '');
+        });
     }, [etudiants]);
+
+    // Obtenir le nom complet de la classe sélectionnée
+    const getSelectedClasseName = useMemo(() => {
+        if (filterClasse === 'all') return 'Toutes les classes';
+        const classe = classesUniques.find(c => c.id.toString() === filterClasse);
+        return classe ? `${classe.niveauCl} ${classe.libelleCl}` : 'Classe inconnue';
+    }, [filterClasse, classesUniques]);
+
+    // Obtenir le nom d'affichage court pour le filtre
+    const getSelectedClasseDisplay = useMemo(() => {
+        if (filterClasse === 'all') return 'Toutes les classes';
+        const classe = classesUniques.find(c => c.id.toString() === filterClasse);
+        return classe ? classe.displayName : 'Classe inconnue';
+    }, [filterClasse, classesUniques]);
 
     // Filtrer et trier les étudiants
     const filteredEtudiants = useMemo(() => {
@@ -156,10 +185,18 @@ const AdminEtudiant = () => {
                 filtered.sort((a, b) => b.nomEtu?.localeCompare(a.nomEtu));
                 break;
             case 'classe-asc':
-                filtered.sort((a, b) => a.classe?.libelleCl?.localeCompare(b.classe?.libelleCl));
+                filtered.sort((a, b) => {
+                    const classeA = a.classe?.displayName || `${a.classe?.niveauCl || ''} ${a.classe?.libelleCl || ''}`;
+                    const classeB = b.classe?.displayName || `${b.classe?.niveauCl || ''} ${b.classe?.libelleCl || ''}`;
+                    return classeA.localeCompare(classeB);
+                });
                 break;
             case 'classe-desc':
-                filtered.sort((a, b) => b.classe?.libelleCl?.localeCompare(a.classe?.libelleCl));
+                filtered.sort((a, b) => {
+                    const classeA = a.classe?.displayName || `${a.classe?.niveauCl || ''} ${a.classe?.libelleCl || ''}`;
+                    const classeB = b.classe?.displayName || `${b.classe?.niveauCl || ''} ${b.classe?.libelleCl || ''}`;
+                    return classeB.localeCompare(classeA);
+                });
                 break;
             case 'recent':
                 filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -197,6 +234,91 @@ const AdminEtudiant = () => {
             await deleteEtudiantAsync(etudiantToDelete.id);
             setIsDeleteModalOpen(false);
             setEtudiantToDelete(null);
+        }
+    };
+
+    // Fonction générique pour exporter
+    const handleExport = async (format) => {
+        if (!filteredEtudiants.length) return;
+        
+        setIsExporting(true);
+        try {
+            const data = filteredEtudiants.map(etudiant => ({
+                'Nom': etudiant.nomEtu || '',
+                'Prénom': etudiant.prenomEtu || '',
+                'Matricule': etudiant.matricule || '',
+                'Email': etudiant.email || '',
+                'Téléphone': etudiant.telEtu || '',
+                'Niveau': etudiant.classe?.niveauCl || 'N/A',
+                'Classe': etudiant.classe?.libelleCl || 'Non assigné',
+                'Date d\'inscription': formatDate(etudiant.created_at)
+            }));
+
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const filters = {
+                classe: getSelectedClasseName,
+                searchTerm: searchTerm || undefined
+            };
+            
+            // Déterminer le titre en fonction du filtre
+            let title = 'Liste des Étudiants';
+            let subtitle = '';
+            
+            if (filterClasse !== 'all') {
+                const classe = classesUniques.find(c => c.id.toString() === filterClasse);
+                if (classe) {
+                    title = `Étudiants - ${classe.niveauCl} ${classe.libelleCl}`;
+                }
+            } else if (searchTerm) {
+                subtitle = `Recherche : "${searchTerm}"`;
+            }
+
+            if (format === 'pdf') {
+                const fileName = filterClasse === 'all' 
+                    ? `etudiants_${dateStr}.pdf`
+                    : `etudiants_${getSelectedClasseName.replace(/\s+/g, '_')}_${dateStr}.pdf`;
+                
+                await exportToPDF({
+                    title,
+                    subtitle,
+                    fileName,
+                    data,
+                    columns: [
+                        { header: 'Nom', key: 'Nom', width: 80 },
+                        { header: 'Prénom', key: 'Prénom', width: 80 },
+                        { header: 'Matricule', key: 'Matricule', width: 90 },
+                        { header: 'Email', key: 'Email', width: 120 },
+                        { header: 'Téléphone', key: 'Téléphone', width: 90 },
+                        { header: 'Niveau', key: 'Niveau', width: 60 },
+                        { header: 'Classe', key: 'Classe', width: 80 },
+                        { header: 'Date d\'inscription', key: 'Date d\'inscription', width: 100 }
+                    ],
+                    summary: {
+                        total: filteredEtudiants.length,
+                        classes: Object.keys(stats.parClasse).length,
+                    },
+                    filters: filters
+                });
+            } else if (format === 'excel') {
+                const fileName = filterClasse === 'all'
+                    ? `etudiants_${dateStr}.xlsx`
+                    : `etudiants_${getSelectedClasseName.replace(/\s+/g, '_')}_${dateStr}.xlsx`;
+                
+                await exportToExcel({
+                    fileName,
+                    data,
+                    sheetName: filterClasse === 'all' ? 'Étudiants' : getSelectedClasseName.substring(0, 31),
+                    title,
+                    date: today.toLocaleDateString('fr-FR'),
+                    filters: filters
+                });
+            }
+        } catch (error) {
+            console.error(`Erreur lors de l'export ${format.toUpperCase()}:`, error);
+            alert(`Erreur lors de l'export ${format.toUpperCase()}. Veuillez réessayer.`);
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -243,27 +365,27 @@ const AdminEtudiant = () => {
 
     // Calculer les statistiques
     const stats = useMemo(() => {
-        if (!etudiants) return { total: 0, parClasse: {}, parGenre: {} };
+        if (!etudiants) return { total: 0, parClasse: {}, parNiveau: {} };
         
         const parClasse = {};
-        const parGenre = {};
+        const parNiveau = {};
         
         etudiants.forEach(etudiant => {
-            // Statistiques par classe
+            // Statistiques par classe complète
             if (etudiant.classe) {
-                const classeKey = `${etudiant.classe.libelleCl}`;
+                const classeKey = `${etudiant.classe.niveauCl} ${etudiant.classe.libelleCl}`;
                 parClasse[classeKey] = (parClasse[classeKey] || 0) + 1;
+                
+                // Statistiques par niveau
+                const niveauKey = etudiant.classe.niveauCl || 'Non spécifié';
+                parNiveau[niveauKey] = (parNiveau[niveauKey] || 0) + 1;
             }
-            
-            // Statistiques par genre (vous pouvez adapter selon votre modèle)
-            // Pour l'instant, on suppose que tous sont sans genre spécifié
-            parGenre['total'] = (parGenre['total'] || 0) + 1;
         });
         
         return {
             total: etudiants.length,
             parClasse,
-            parGenre
+            parNiveau
         };
     }, [etudiants]);
 
@@ -288,7 +410,7 @@ const AdminEtudiant = () => {
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                     <input
                                         type="text"
-                                        placeholder="Rechercher par nom, prénom, matricule, classe..."
+                                        placeholder="Rechercher par nom, prénom, matricule, classe, niveau..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="pl-10 w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-colors"
@@ -304,18 +426,18 @@ const AdminEtudiant = () => {
                                 </div>
 
                                 {/* Filtres et actions */}
-                                <div className="flex items-center gap-3">
-                                    {/* Filtre par classe */}
+                                <div className="flex flex-wrap items-center gap-3">
+                                    {/* Filtre par classe amélioré */}
                                     <div className="relative">
                                         <select
                                             value={filterClasse}
                                             onChange={(e) => setFilterClasse(e.target.value)}
-                                            className="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-gray-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-colors bg-white min-w-[180px]"
+                                            className="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-gray-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-colors bg-white min-w-[200px]"
                                         >
                                             <option value="all">Toutes les classes</option>
                                             {classesUniques.map((classe) => (
                                                 <option key={classe.id} value={classe.id}>
-                                                    {classe.libelleCl}
+                                                    {classe.displayName}
                                                 </option>
                                             ))}
                                         </select>
@@ -350,7 +472,7 @@ const AdminEtudiant = () => {
                                         title={classes?.length === 0 ? "Créez d'abord une classe" : "Ajouter un étudiant"}
                                     >
                                         <Plus className="h-4 w-4" />
-                                        <span className="font-medium">Nouveau</span>
+                                        <span className="font-medium hidden sm:inline">Nouveau</span>
                                     </button>
                                 </div>
                             </div>
@@ -370,20 +492,72 @@ const AdminEtudiant = () => {
                                         </span>
                                     )}
                                 </div>
+                                
+                                {/* Indicateur de filtre actif */}
+                                {hasActiveFilters && (
+                                    <div className="flex items-center gap-2">
+                                        <Filter className="h-4 w-4 text-gray-400" />
+                                        <span className="text-sm text-gray-600">
+                                            {filterClasse !== 'all' && `Classe : ${getSelectedClasseName}`}
+                                            {filterClasse !== 'all' && searchTerm && ' | '}
+                                            {searchTerm && `Recherche : "${searchTerm}"`}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Indicateur de tri */}
-                        <div className="flex items-center justify-between px-2">
+                        {/* Barre d'exportation et indicateur de tri */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-2">
                             <div className="text-sm text-gray-600">
                                 Tri: <span className="font-medium text-pink-600">{getSortLabel(sortBy)}</span>
+                                {filterClasse !== 'all' && (
+                                    <span className="ml-3 text-blue-600">
+                                        • Filtre: {getSelectedClasseDisplay}
+                                    </span>
+                                )}
                             </div>
+                            
+                            {/* Boutons d'exportation */}
+                            {filteredEtudiants.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <div className="text-xs text-gray-500 mr-2 hidden sm:block">
+                                        Exporter {filterClasse === 'all' ? 'tous les étudiants' : getSelectedClasseDisplay}:
+                                    </div>
+                                    <button
+                                        onClick={() => handleExport('pdf')}
+                                        disabled={isExporting || filteredEtudiants.length === 0}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 hover:border-pink-300 hover:bg-pink-50 text-gray-700 hover:text-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title={filterClasse === 'all' ? "Exporter tous les étudiants en PDF" : `Exporter ${getSelectedClasseDisplay} en PDF`}
+                                    >
+                                        {isExporting ? (
+                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-pink-500 border-t-transparent"></div>
+                                        ) : (
+                                            <FileText className="h-4 w-4" />
+                                        )}
+                                        <span className="text-sm font-medium hidden sm:inline">PDF</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleExport('excel')}
+                                        disabled={isExporting || filteredEtudiants.length === 0}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 hover:border-green-300 hover:bg-green-50 text-gray-700 hover:text-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title={filterClasse === 'all' ? "Exporter tous les étudiants en Excel" : `Exporter ${getSelectedClasseDisplay} en Excel`}
+                                    >
+                                        {isExporting ? (
+                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-500 border-t-transparent"></div>
+                                        ) : (
+                                            <Download className="h-4 w-4" />
+                                        )}
+                                        <span className="text-sm font-medium hidden sm:inline">Excel</span>
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
 
                 {/* Statistiques avec skeletons */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {isLoading ? (
                         <>
                             <StatCardSkeleton />
@@ -407,8 +581,11 @@ const AdminEtudiant = () => {
                             <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-4 border border-blue-100">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-500 text-sm">Classes</p>
+                                        <p className="text-gray-500 text-sm">Classes différentes</p>
                                         <p className="text-2xl font-bold text-gray-900">{Object.keys(stats.parClasse).length}</p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {Object.keys(stats.parNiveau).length} niveau{Object.keys(stats.parNiveau).length !== 1 ? 'x' : ''}
+                                        </p>
                                     </div>
                                     <div className="p-2 rounded-lg bg-blue-100">
                                         <GraduationCap className="h-6 w-6 text-blue-500" />
@@ -443,12 +620,10 @@ const AdminEtudiant = () => {
                         <>
                             {/* En-tête du tableau pendant le chargement */}
                             <div className="bg-pink-50 p-4">
-                                <div className="flex space-x-4">
-                                    <div className="h-4 w-1/5 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/5 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/5 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/5 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/5 bg-gray-300 rounded animate-pulse"></div>
+                                <div className="grid grid-cols-6 gap-4">
+                                    {[1, 2, 3, 4, 5, 6].map((item) => (
+                                        <div key={item} className="h-4 bg-gray-300 rounded animate-pulse"></div>
+                                    ))}
                                 </div>
                             </div>
                             
@@ -489,33 +664,39 @@ const AdminEtudiant = () => {
                     ) : (
                         <>
                             {/* En-tête avec compteur */}
-                            <div className="px-6 py-4 bg-pink-50 border-b border-pink-100">
-                                <div className="flex items-center justify-between">
+                            <div className="px-4 sm:px-6 py-4 bg-pink-50 border-b border-pink-100">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <div>
                                         <span className="font-medium text-gray-700">
                                             Liste des étudiants
+                                            {filterClasse !== 'all' && (
+                                                <span className="ml-2 text-blue-600">
+                                                    ({getSelectedClasseDisplay})
+                                                </span>
+                                            )}
                                         </span>
                                         <span className="ml-2 text-sm text-gray-500">
                                             ({filteredEtudiants.length} résultat{filteredEtudiants.length !== 1 ? 's' : ''})
                                         </span>
                                     </div>
                                     <div className="text-sm text-gray-600">
-                                        Tri: <span className="font-medium">{getSortLabel(sortBy)}</span>
+                                        <span className="hidden sm:inline">Tri: </span>
+                                        <span className="font-medium">{getSortLabel(sortBy)}</span>
                                     </div>
                                 </div>
                             </div>
                             
                             {/* Tableau */}
                             <div className="overflow-x-auto">
-                                <table className="w-full">
+                                <table className="w-full min-w-[800px]">
                                     <thead className="bg-pink-50">
                                         <tr>
-                                            <th className="text-left p-4 font-medium text-gray-700">Étudiant</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Contact</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Matricule</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Classe</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Date</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Actions</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Étudiant</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Contact</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Matricule</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Classe</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Date</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -523,7 +704,7 @@ const AdminEtudiant = () => {
                                             <tr key={etudiant.id} className="hover:bg-pink-50/50 transition-colors">
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center overflow-hidden">
+                                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center overflow-hidden flex-shrink-0">
                                                             {etudiant.photo ? (
                                                                 <img 
                                                                     src={etudiant.photo} 
@@ -534,60 +715,65 @@ const AdminEtudiant = () => {
                                                                 <User className="h-5 w-5 text-white" />
                                                             )}
                                                         </div>
-                                                        <div>
-                                                            <p className="font-medium text-gray-900">
+                                                        <div className="min-w-0">
+                                                            <p className="font-medium text-gray-900 truncate">
                                                                 {etudiant.prenomEtu} {etudiant.nomEtu}
                                                             </p>
-                                                            <p className="text-sm text-gray-500">Étudiant</p>
+                                                            <p className="text-sm text-gray-500 truncate">Étudiant</p>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="space-y-1">
                                                         <div className="flex items-center gap-2">
-                                                            <Mail className="h-3 w-3 text-gray-400" />
-                                                            <span className="text-sm text-gray-600">{etudiant.email}</span>
+                                                            <Mail className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                                            <span className="text-sm text-gray-600 truncate">{etudiant.email}</span>
                                                         </div>
                                                         <div className="flex items-center gap-2">
-                                                            <Phone className="h-3 w-3 text-gray-400" />
-                                                            <span className="text-sm text-gray-600">{etudiant.telEtu}</span>
+                                                            <Phone className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                                            <span className="text-sm text-gray-600 truncate">{etudiant.telEtu}</span>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-sm font-medium">
+                                                    <span className="inline-block px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-sm font-medium truncate max-w-[120px]">
                                                         {etudiant.matricule}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
                                                     {etudiant.classe ? (
                                                         <div>
-                                                            <span className="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
-                                                                {etudiant.classe.libelleCl}
-                                                            </span>
-                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                {etudiant.classe.niveauCl}
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="inline-block px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                                                                    {etudiant.classe.niveauCl}
+                                                                </span>
+                                                                <span className="inline-block px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium truncate max-w-[120px]">
+                                                                    {etudiant.classe.libelleCl}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 mt-1 truncate">
+                                                                {etudiant.classe.niveauCl} - {etudiant.classe.libelleCl}
                                                             </p>
                                                         </div>
                                                     ) : (
                                                         <span className="text-sm text-gray-500">Non assigné</span>
                                                     )}
                                                 </td>
-                                                <td className="p-4 text-sm text-gray-600">
+                                                <td className="p-4 text-sm text-gray-600 whitespace-nowrap">
                                                     {formatDate(etudiant.created_at)}
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => openEditModal(etudiant)}
-                                                            className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-600 transition-colors"
+                                                            className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-600 transition-colors flex-shrink-0"
                                                             title="Modifier"
                                                         >
                                                             <Edit className="h-4 w-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => openDeleteModal(etudiant)}
-                                                            className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors"
+                                                            className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors flex-shrink-0"
                                                             title="Supprimer"
                                                         >
                                                             <Trash2 className="h-4 w-4" />
