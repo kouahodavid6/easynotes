@@ -13,6 +13,9 @@ import {
     Clock,
     Hash,
     TrendingUp,
+    FileText,
+    Download,
+    Filter
 } from 'lucide-react';
 import PageHeader from "../../../components/PageHeader";
 import { useNotes } from '../../../hooks/useNotes';
@@ -21,6 +24,8 @@ import { useMatieres } from '../../../hooks/useMatieres';
 import { useEtudiants } from '../../../hooks/useEtudiants';
 import DeleteConfirmModal from '../../components/DeleteConfirmModal';
 import NoteModal from "./components/NoteModal";
+import { exportToPDF } from '../../../utils/pdfExport';
+import { exportToExcel } from '../../../utils/excelExport';
 
 // Composant Skeleton pour les cartes de statistiques
 const StatCardSkeleton = () => (
@@ -101,6 +106,7 @@ const EnseignantNotes = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [noteToDelete, setNoteToDelete] = useState(null);
     const [noteToEdit, setNoteToEdit] = useState(null);
+    const [isExporting, setIsExporting] = useState(false);
 
     const { 
         notes, 
@@ -126,7 +132,10 @@ const EnseignantNotes = () => {
         notes.forEach(note => {
             if (note.classe && !seen.has(note.classe.id)) {
                 seen.add(note.classe.id);
-                uniqueClasses.push(note.classe);
+                uniqueClasses.push({
+                    ...note.classe,
+                    displayName: `${note.classe.niveauCl} - ${note.classe.libelleCl}`
+                });
             }
         });
         
@@ -162,6 +171,25 @@ const EnseignantNotes = () => {
         
         return uniqueEtudiants.sort((a, b) => a.nomEtu?.localeCompare(b.nomEtu));
     }, [notes]);
+
+    // Obtenir les noms des filtres sélectionnés
+    const getSelectedClasseName = useMemo(() => {
+        if (filterClasse === 'all') return 'Toutes les classes';
+        const classe = classesUniques.find(c => c.id.toString() === filterClasse);
+        return classe ? `${classe.niveauCl} ${classe.libelleCl}` : 'Classe inconnue';
+    }, [filterClasse, classesUniques]);
+
+    const getSelectedMatiereName = useMemo(() => {
+        if (filterMatiere === 'all') return 'Toutes les matières';
+        const matiere = matieresUniques.find(m => m.id.toString() === filterMatiere);
+        return matiere ? matiere.libelleMat : 'Matière inconnue';
+    }, [filterMatiere, matieresUniques]);
+
+    const getSelectedEtudiantName = useMemo(() => {
+        if (filterEtudiant === 'all') return 'Tous les étudiants';
+        const etudiant = etudiantsUniques.find(e => e.id.toString() === filterEtudiant);
+        return etudiant ? `${etudiant.prenomEtu} ${etudiant.nomEtu}` : 'Étudiant inconnu';
+    }, [filterEtudiant, etudiantsUniques]);
 
     // Filtrer et trier les notes
     const filteredNotes = useMemo(() => {
@@ -265,6 +293,91 @@ const EnseignantNotes = () => {
         }
     };
 
+    // Fonction pour exporter
+    const handleExport = async (format) => {
+        if (!filteredNotes.length) return;
+        
+        setIsExporting(true);
+        try {
+            const data = filteredNotes.map(note => ({
+                'Étudiant': `${note.etudiant?.prenomEtu || ''} ${note.etudiant?.nomEtu || ''}`,
+                'Matricule': note.etudiant?.matricule || '',
+                'Email': note.etudiant?.email || '',
+                'Matière': note.matiere?.libelleMat || 'N/A',
+                'Crédits': note.matiere?.creditMat || '0',
+                'Classe': `${note.classe?.niveauCl || ''} ${note.classe?.libelleCl || 'Non assignée'}`,
+                'Note': parseFloat(note.note).toFixed(2),
+                'Appréciation': getAppreciation(note.note),
+                'Date d\'enregistrement': formatDate(note.created_at),
+                'Date et heure': formatDateTime(note.created_at)
+            }));
+
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            
+            // Déterminer les filtres
+            const filters = {
+                classe: filterClasse !== 'all' ? getSelectedClasseName : undefined,
+                matiere: filterMatiere !== 'all' ? getSelectedMatiereName : undefined,
+                etudiant: filterEtudiant !== 'all' ? getSelectedEtudiantName : undefined,
+                searchTerm: searchTerm || undefined
+            };
+            
+            // Déterminer le titre
+            let title = 'Liste des Notes';
+            if (filterMatiere !== 'all') {
+                title = `Notes - ${getSelectedMatiereName}`;
+            } else if (filterClasse !== 'all') {
+                title = `Notes - ${getSelectedClasseName}`;
+            } else if (filterEtudiant !== 'all') {
+                title = `Notes - ${getSelectedEtudiantName}`;
+            }
+
+            if (format === 'pdf') {
+                const fileName = `notes_${dateStr}.pdf`;
+                
+                await exportToPDF({
+                    title,
+                    fileName,
+                    data,
+                    columns: [
+                        { header: 'Étudiant', key: 'Étudiant', width: 50 },
+                        { header: 'Matricule', key: 'Matricule', width: 40 },
+                        { header: 'Matière', key: 'Matière', width: 45 },
+                        { header: 'Crédits', key: 'Crédits', width: 25 },
+                        { header: 'Classe', key: 'Classe', width: 45 },
+                        { header: 'Note', key: 'Note', width: 25 },
+                        { header: 'Appréciation', key: 'Appréciation', width: 40 },
+                        { header: 'Date d\'enreg.', key: 'Date d\'enregistrement', width: 35 }
+                    ],
+                    summary: {
+                        total: filteredNotes.length,
+                        moyenne: stats.moyenne.toFixed(2),
+                        maxNote: stats.maxNote !== -Infinity ? stats.maxNote.toFixed(2) : 'N/A',
+                        minNote: stats.minNote !== Infinity ? stats.minNote.toFixed(2) : 'N/A'
+                    },
+                    filters: filters
+                });
+            } else if (format === 'excel') {
+                const fileName = `notes_${dateStr}.xlsx`;
+                
+                await exportToExcel({
+                    fileName,
+                    data,
+                    sheetName: 'Notes',
+                    title,
+                    date: today.toLocaleDateString('fr-FR'),
+                    filters: filters
+                });
+            }
+        } catch (error) {
+            console.error(`Erreur lors de l'export ${format.toUpperCase()}:`, error);
+            alert(`Erreur lors de l'export ${format.toUpperCase()}. Veuillez réessayer.`);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     const openDeleteModal = (note) => {
         setNoteToDelete(note);
         setIsDeleteModalOpen(true);
@@ -296,6 +409,18 @@ const EnseignantNotes = () => {
             hour: '2-digit',
             minute: '2-digit'
         });
+    };
+
+    // Obtenir l'appréciation en fonction de la note
+    const getAppreciation = (note) => {
+        const value = parseFloat(note);
+        if (value >= 18) return 'Excellent';
+        if (value >= 16) return 'Très bien';
+        if (value >= 14) return 'Bien';
+        if (value >= 12) return 'Assez bien';
+        if (value >= 10) return 'Passable';
+        if (value >= 8) return 'Insuffisant';
+        return 'Très insuffisant';
     };
 
     // Obtenir la couleur en fonction de la note
@@ -449,7 +574,7 @@ const EnseignantNotes = () => {
                                         <option value="all">Toutes les classes</option>
                                         {classesUniques.map((classe) => (
                                             <option key={classe.id} value={classe.id}>
-                                                {classe.libelleCl}
+                                                {classe.displayName}
                                             </option>
                                         ))}
                                     </select>
@@ -509,14 +634,71 @@ const EnseignantNotes = () => {
                                         </span>
                                     )}
                                 </div>
+                                
+                                {/* Indicateur de filtre actif */}
+                                {hasActiveFilters && (
+                                    <div className="flex items-center gap-2">
+                                        <Filter className="h-4 w-4 text-gray-400" />
+                                        <span className="text-sm text-gray-600">
+                                            {filterClasse !== 'all' && `Classe : ${getSelectedClasseName}`}
+                                            {filterClasse !== 'all' && filterMatiere !== 'all' && ' | '}
+                                            {filterMatiere !== 'all' && `Matière : ${getSelectedMatiereName}`}
+                                            {(filterClasse !== 'all' || filterMatiere !== 'all') && filterEtudiant !== 'all' && ' | '}
+                                            {filterEtudiant !== 'all' && `Étudiant : ${getSelectedEtudiantName}`}
+                                            {(filterClasse !== 'all' || filterMatiere !== 'all' || filterEtudiant !== 'all') && searchTerm && ' | '}
+                                            {searchTerm && `Recherche : "${searchTerm}"`}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Indicateur de tri */}
-                        <div className="flex items-center justify-between px-2">
+                        {/* Barre d'exportation et indicateur de tri */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-2">
                             <div className="text-sm text-gray-600">
                                 Tri: <span className="font-medium text-pink-600">{getSortLabel(sortBy)}</span>
+                                {hasActiveFilters && (
+                                    <span className="ml-3 text-blue-600">
+                                        • Filtre actif
+                                    </span>
+                                )}
                             </div>
+                            
+                            {/* Boutons d'exportation */}
+                            {filteredNotes.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <div className="text-xs text-gray-500 mr-2 hidden sm:block">
+                                        Exporter la liste:
+                                    </div>
+                                    <button
+                                        onClick={() => handleExport('pdf')}
+                                        disabled={isExporting || filteredNotes.length === 0}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 hover:border-pink-300 hover:bg-pink-50 text-gray-700 hover:text-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Exporter en PDF"
+                                    >
+                                        {isExporting ? (
+                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-pink-500 border-t-transparent"></div>
+                                        ) : (
+                                            <FileText className="h-4 w-4" />
+                                        )}
+                                        <span className="text-sm font-medium hidden sm:inline">PDF</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleExport('excel')}
+                                        disabled={isExporting || filteredNotes.length === 0}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 hover:border-green-300 hover:bg-green-50 text-gray-700 hover:text-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Exporter en Excel"
+                                    >
+                                        {isExporting ? (
+                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-500 border-t-transparent"></div>
+                                        ) : (
+                                            <Download className="h-4 w-4" />
+                                        )}
+                                        <span className="text-sm font-medium hidden sm:inline">Excel</span>
+                                    </button>
+                                </div>
+                            )}
+                            
                             {/* Tri */}
                             <div className="relative">
                                 <select
@@ -567,7 +749,7 @@ const EnseignantNotes = () => {
                             <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-4 border border-blue-100">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-500 text-sm">Moyenne</p>
+                                        <p className="text-gray-500 text-sm">Moyenne générale</p>
                                         <p className="text-2xl font-bold text-gray-900">
                                             {stats.moyenne ? stats.moyenne.toFixed(2) : '0.00'}
                                         </p>
@@ -595,7 +777,7 @@ const EnseignantNotes = () => {
                             <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-2xl p-4 border border-purple-100">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-500 text-sm">Ce mois</p>
+                                        <p className="text-gray-500 text-sm">Notes ce mois</p>
                                         <p className="text-2xl font-bold text-gray-900">{stats.recentCount}</p>
                                     </div>
                                     <div className="p-2 rounded-lg bg-purple-100">
@@ -613,13 +795,10 @@ const EnseignantNotes = () => {
                         <>
                             {/* En-tête du tableau pendant le chargement */}
                             <div className="bg-pink-50 p-4">
-                                <div className="flex space-x-4">
-                                    <div className="h-4 w-1/6 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/6 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/6 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/6 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/6 bg-gray-300 rounded animate-pulse"></div>
-                                    <div className="h-4 w-1/6 bg-gray-300 rounded animate-pulse"></div>
+                                <div className="grid grid-cols-6 gap-4">
+                                    {[1, 2, 3, 4, 5, 6].map((item) => (
+                                        <div key={item} className="h-4 bg-gray-300 rounded animate-pulse"></div>
+                                    ))}
                                 </div>
                             </div>
                             
@@ -660,33 +839,39 @@ const EnseignantNotes = () => {
                     ) : (
                         <>
                             {/* En-tête avec compteur */}
-                            <div className="px-6 py-4 bg-pink-50 border-b border-pink-100">
-                                <div className="flex items-center justify-between">
+                            <div className="px-4 sm:px-6 py-4 bg-pink-50 border-b border-pink-100">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <div>
                                         <span className="font-medium text-gray-700">
                                             Liste des notes
+                                            {filterMatiere !== 'all' && (
+                                                <span className="ml-2 text-blue-600">
+                                                    ({getSelectedMatiereName})
+                                                </span>
+                                            )}
                                         </span>
                                         <span className="ml-2 text-sm text-gray-500">
                                             ({filteredNotes.length} résultat{filteredNotes.length !== 1 ? 's' : ''})
                                         </span>
                                     </div>
                                     <div className="text-sm text-gray-600">
-                                        Tri: <span className="font-medium">{getSortLabel(sortBy)}</span>
+                                        <span className="hidden sm:inline">Tri: </span>
+                                        <span className="font-medium">{getSortLabel(sortBy)}</span>
                                     </div>
                                 </div>
                             </div>
                             
                             {/* Tableau */}
                             <div className="overflow-x-auto">
-                                <table className="w-full">
+                                <table className="w-full min-w-[800px]">
                                     <thead className="bg-pink-50">
                                         <tr>
-                                            <th className="text-left p-4 font-medium text-gray-700">Étudiant</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Matière</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Classe</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Note</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Date</th>
-                                            <th className="text-left p-4 font-medium text-gray-700">Actions</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Étudiant</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Matière</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Classe</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Note</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Date</th>
+                                            <th className="text-left p-4 font-medium text-gray-700 whitespace-nowrap">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -694,7 +879,7 @@ const EnseignantNotes = () => {
                                             <tr key={note.id} className="hover:bg-pink-50/50 transition-colors">
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden">
+                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden flex-shrink-0">
                                                             {note.etudiant?.photo ? (
                                                                 <img 
                                                                     src={note.etudiant.photo} 
@@ -705,11 +890,11 @@ const EnseignantNotes = () => {
                                                                 <User className="h-5 w-5 text-white" />
                                                             )}
                                                         </div>
-                                                        <div>
-                                                            <p className="font-medium text-gray-900">
+                                                        <div className="min-w-0">
+                                                            <p className="font-medium text-gray-900 truncate">
                                                                 {note.etudiant?.prenomEtu} {note.etudiant?.nomEtu}
                                                             </p>
-                                                            <p className="text-sm text-gray-500">
+                                                            <p className="text-sm text-gray-500 truncate">
                                                                 {note.etudiant?.email}
                                                             </p>
                                                         </div>
@@ -717,12 +902,12 @@ const EnseignantNotes = () => {
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center flex-shrink-0">
                                                             <BookOpen className="h-4 w-4 text-white" />
                                                         </div>
-                                                        <div>
-                                                            <p className="text-sm text-gray-900">{note.matiere?.libelleMat}</p>
-                                                            <p className="text-xs text-gray-500">
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm text-gray-900 truncate">{note.matiere?.libelleMat}</p>
+                                                            <p className="text-xs text-gray-500 truncate">
                                                                 {note.matiere?.creditMat} crédit{note.matiere?.creditMat !== 1 ? 's' : ''}
                                                             </p>
                                                         </div>
@@ -731,11 +916,16 @@ const EnseignantNotes = () => {
                                                 <td className="p-4">
                                                     {note.classe ? (
                                                         <div>
-                                                            <span className="inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
-                                                                {note.classe.libelleCl}
-                                                            </span>
-                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                {note.classe.niveauCl}
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="inline-block px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                                                                    {note.classe.niveauCl}
+                                                                </span>
+                                                                <span className="inline-block px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium truncate max-w-[120px]">
+                                                                    {note.classe.libelleCl}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 mt-1 truncate">
+                                                                {note.classe.niveauCl} - {note.classe.libelleCl}
                                                             </p>
                                                         </div>
                                                     ) : (
@@ -743,16 +933,21 @@ const EnseignantNotes = () => {
                                                     )}
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getNoteColor(note.note)}`}>
-                                                        {parseFloat(note.note).toFixed(2)}/20
-                                                    </span>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getNoteColor(note.note)} w-fit`}>
+                                                            {parseFloat(note.note).toFixed(2)}/20
+                                                        </span>
+                                                        <span className="text-xs text-gray-500">
+                                                            {getAppreciation(note.note)}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="space-y-1">
-                                                        <p className="text-sm text-gray-600">
+                                                        <p className="text-sm text-gray-600 whitespace-nowrap">
                                                             {formatDate(note.created_at)}
                                                         </p>
-                                                        <p className="text-xs text-gray-500">
+                                                        <p className="text-xs text-gray-500 whitespace-nowrap">
                                                             {formatDateTime(note.created_at).split(' ')[1]}
                                                         </p>
                                                     </div>
@@ -761,14 +956,14 @@ const EnseignantNotes = () => {
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => openEditModal(note)}
-                                                            className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-600 transition-colors"
+                                                            className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-600 transition-colors flex-shrink-0"
                                                             title="Modifier"
                                                         >
                                                             <Edit className="h-4 w-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => openDeleteModal(note)}
-                                                            className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors"
+                                                            className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors flex-shrink-0"
                                                             title="Supprimer"
                                                         >
                                                             <Trash2 className="h-4 w-4" />
